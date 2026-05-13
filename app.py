@@ -23,7 +23,7 @@ st.set_page_config(
     page_icon="📜",
     layout="wide",
     # ===== CHATGPT UPDATE START =====
-    initial_sidebar_state="collapsed",
+    initial_sidebar_state="expanded",
 # ===== CHATGPT UPDATE END =====
 )
 
