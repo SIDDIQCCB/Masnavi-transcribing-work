@@ -109,6 +109,8 @@ with st.sidebar:
 
     st.markdown("---")
 
+    st.success("✅ Sidebar Active")
+
     with st.expander("⚙️ Advanced Settings"):
 
         model_size = st.selectbox(
