@@ -241,7 +241,7 @@ with tab_dash:
     if st.session_state.processing:
         st.markdown(f"**⚙ Processing:** {st.session_state.cur_video[:80]}")
         st.progress(st.session_state.cur_pct/100, text=f"{st.session_state.cur_stage} — {st.session_state.cur_pct:.1f}%")
-        time.sleep(0.1); st.rerun()
+        time.sleep(0.1); 
 
     cr,_ = st.columns([1,5])
     with cr:
