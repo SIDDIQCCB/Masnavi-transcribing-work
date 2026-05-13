@@ -111,13 +111,13 @@ with st.sidebar:
 
     st.success("✅ Sidebar Active")
 
-    with st.expander("⚙️ Advanced Settings"):
+    model_size = st.selectbox(
+        "Whisper Model",
+        ["tiny", "base", "small", "medium", "large-v2"],
+        index=3
+    )
 
-        model_size = st.selectbox(
-            "Whisper Model",
-            ["tiny", "base", "small", "medium", "large-v2"],
-            index=3
-        )
+    with st.expander("⚙️ Advanced Settings"):
 
         cpu_threads = st.slider(
             "CPU Threads",
