@@ -22,7 +22,9 @@ st.set_page_config(
     page_title="مثنوی ٹرانسکرپشن",
     page_icon="📜",
     layout="wide",
-    initial_sidebar_state="expanded",
+    # ===== CHATGPT UPDATE START =====
+    initial_sidebar_state="collapsed",
+# ===== CHATGPT UPDATE END =====
 )
 
 st.markdown("""
@@ -90,21 +92,77 @@ def badge(status):
     return f'<span class="badge {c}">{l}</span>'
 
 # ── Sidebar ────────────────────────────────────────────────────────────────────
+# ===== CHATGPT UPDATE START =====
+
 with st.sidebar:
     st.markdown("## 📜 مثنوی ٹرانسکرپشن")
     st.markdown("---")
-    st.markdown("### ⚙️ Settings")
-    model_size  = st.selectbox("Whisper Model",["tiny","base","small","medium","large-v2"],index=3)
-    cpu_threads = st.slider("CPU Threads", 1, 16, 4, help="Set to your machine's core count for max speed")
-    language    = st.selectbox("Primary Language",["ur (Urdu)","fa (Persian)","ar (Arabic)"],index=0)
-    lang_code   = language.split()[0]
-    out_dir     = st.text_input("Transcripts folder", TRANSCRIPT_DIR)
-    audio_dir   = st.text_input("Audio cache",        AUDIO_DIR)
-    prog_file   = st.text_input("Progress file",      PROGRESS_FILE)
+
+    st.markdown("""
+    ### 📌 Team Workspace
+
+    - Shared transcription platform
+    - Collaborative correction workflow
+    - DOCX archive management
+    - Future AI chatbot integration
+    """)
+
     st.markdown("---")
-    st.markdown("### 📐 Speed vs Accuracy")
-    for m,(sp,ac) in {"tiny":("⚡⚡⚡⚡","★☆☆☆"),"base":("⚡⚡⚡","★★☆☆"),"small":("⚡⚡","★★★☆"),"medium":("⚡","★★★★"),"large-v2":("🐢","★★★★★")}.items():
-        st.markdown(f"`{m}` {sp} {ac}")
+
+    with st.expander("⚙️ Advanced Settings"):
+
+        model_size = st.selectbox(
+            "Whisper Model",
+            ["tiny", "base", "small", "medium", "large-v2"],
+            index=3
+        )
+
+        cpu_threads = st.slider(
+            "CPU Threads",
+            1,
+            16,
+            4,
+            help="Set according to your CPU cores"
+        )
+
+        language = st.selectbox(
+            "Primary Language",
+            ["ur (Urdu)", "fa (Persian)", "ar (Arabic)"],
+            index=0
+        )
+
+        lang_code = language.split()[0]
+
+        out_dir = st.text_input(
+            "Transcripts Folder",
+            TRANSCRIPT_DIR
+        )
+
+        audio_dir = st.text_input(
+            "Audio Cache",
+            AUDIO_DIR
+        )
+
+        prog_file = st.text_input(
+            "Progress File",
+            PROGRESS_FILE
+        )
+
+        st.markdown("---")
+        st.markdown("### 📐 Speed vs Accuracy")
+
+        speed_info = {
+            "tiny": ("⚡⚡⚡⚡", "★☆☆☆"),
+            "base": ("⚡⚡⚡", "★★☆☆"),
+            "small": ("⚡⚡", "★★★☆"),
+            "medium": ("⚡", "★★★★"),
+            "large-v2": ("🐢", "★★★★★")
+        }
+
+        for m, (sp, ac) in speed_info.items():
+            st.markdown(f"`{m}` {sp} {ac}")
+
+# ===== CHATGPT UPDATE END =====
 
 # ── Header ─────────────────────────────────────────────────────────────────────
 st.markdown("# 📜 مثنوی لیکچر ٹرانسکرپشن سسٹم")
@@ -131,14 +189,41 @@ with tab_dash:
         pend  = sum(1 for v in vids.values() if v["status"]=="pending")
         pct   = round(done/max(total,1)*100,1)
 
-        c1,c2,c3,c4,c5,c6 = st.columns(6)
+        # ===== CHATGPT UPDATE START =====
+
+        transcript_docx = list(Path(out_dir).glob("*.docx")) if Path(out_dir).exists() else []
+        transcript_txt  = list(Path(out_dir).glob("*.txt")) if Path(out_dir).exists() else []
+
+        total_archive_files = len(transcript_docx) + len(transcript_txt)
+
+        ESTIMATED_PROJECT_FILES = 786
+
+        archive_progress = round(
+            total_archive_files / max(ESTIMATED_PROJECT_FILES, 1) * 100,
+            1
+        )
+
+        c1,c2,c3,c4,c5,c6,c7 = st.columns(7)
+
         c1.metric("📹 کل", total)
         c2.metric("✅ مکمل", done)
         c3.metric("⚙️ جاری", proc)
         c4.metric("⏳ باقی", pend)
         c5.metric("❌ ناکام", fail)
         c6.metric("📈 %", f"{pct}%")
+        c7.metric("📚 Archive", total_archive_files)
+
         st.progress(pct/100)
+
+        st.markdown("### 📚 Archive Progress")
+        st.progress(archive_progress / 100)
+
+        st.caption(
+            f"{total_archive_files} transcript files archived "
+            f"out of estimated {ESTIMATED_PROJECT_FILES}"
+        )
+
+# ===== CHATGPT UPDATE END =====
         st.caption(f"Playlist: {data.get('playlist_url','—')[:80]}")
         st.markdown("")
 
