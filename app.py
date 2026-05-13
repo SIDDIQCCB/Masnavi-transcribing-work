@@ -21,7 +21,7 @@ from datetime import datetime
 st.set_page_config(
     page_title="مثنوی ٹرانسکرپشن",
     page_icon="📜",
-    layout="wide",
+    layout="centered",
     # ===== CHATGPT UPDATE START =====
     initial_sidebar_state="expanded",
 # ===== CHATGPT UPDATE END =====
