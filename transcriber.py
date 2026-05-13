@@ -414,175 +414,48 @@ def _make_docx(title: str, clean_lines: list, date_str: str, docx_path) -> bool:
     LATIN_FONT = "Calibri"
     RTL_RE     = _re.compile(r"[\u0600-\u06FF\u0750-\u077F\uFB50-\uFDFF\uFE70-\uFEFF]")
 
-    def is_verse(line):
-        """Short line with mostly Arabic/Urdu chars = Quran or Persian verse."""
-        if len(line) >= 130: return False
-        rtl = len(RTL_RE.findall(line))
-        total = len(line.replace(" ",""))
-        return total > 0 and (rtl / total) > 0.85 and len(line) < 120
+    
+# Persian words common in Masnavi verses
+_PERSIAN_WORDS = {
+    "این","آن","است","می","را","که","از","با","بر","تا","هر","هم",
+    "نی","بشنو","چون","شکایت","جدایی","حکایت","آتش","کاندر","فتاد",
+    "دل","جان","درد","آب","خاک","باد","روح","نور",
+    "گفت","گفتم","گویم","شنو","بین","بیا","رفت","آمد",
+    "ما","من","تو","شد","شو","کن","کرد","بود","باش",
+    "دوست","راه","راز","پرده","پنهان","آشکار",
+    "مست","هست","نیست","چیست","کیست","کجاست",
+    "جوشش","خاموش","آواز","ناله","فریاد",
+    "می‌کند","می‌گوید","می‌خواهد","می‌داند",
+}
+_URDU_WORDS = {
+    "ہے","ہیں","ہو","ہوں","ہوتا","ہوتی","ہوتے",
+    "نے","کو","میں","سے","پر","کے","کی","کا",
+    "یہ","وہ","اس","ان","جو","جب","تب","اور","لیکن",
+    "فرمایا","کہا","بتایا","سمجھایا","بیان","مطلب",
+    "آج","کل","پہلے","بعد","ابھی","پھر",
+    "بہت","کچھ","سب","ہمارے","تمہارے","آپ",
+    "مولانا","حضرت","شیخ","درس","سبق",
+}
+_STRONG_URDU    = {"ہے","ہیں","ہوتا","ہوتی","فرمایا","کہا","بتایا","مولانا","حضرت"}
+_STRONG_PERSIAN = {"بشنو","کاندر","می‌کند","می‌گوید","جدایی","شکایت","فتاد","گفت"}
 
-    def set_rtl_para(para):
-        """Set paragraph-level RTL and bidirectional."""
-        pPr = para._p.get_or_add_pPr()
-        bidi = OxmlElement("w:bidi")
-        bidi.set(qn("w:val"), "1")
-        pPr.insert(0, bidi)
 
-    def set_rtl_run(run):
-        """Set run-level RTL."""
-        rPr = run._r.get_or_add_rPr()
-        rtl = OxmlElement("w:rtl")
-        rtl.set(qn("w:val"), "1")
-        rPr.append(rtl)
-
-    def add_shading(para, fill_hex):
-        """Add background shading to paragraph."""
-        pPr = para._p.get_or_add_pPr()
-        shd = OxmlElement("w:shd")
-        shd.set(qn("w:val"),   "clear")
-        shd.set(qn("w:color"), "auto")
-        shd.set(qn("w:fill"),  fill_hex)
-        pPr.append(shd)
-
-    def add_border_right(para, color="B8860B", size=18):
-        """Add right border (visual marker for verse lines)."""
-        pPr  = para._p.get_or_add_pPr()
-        pBdr = OxmlElement("w:pBdr")
-        right = OxmlElement("w:right")
-        right.set(qn("w:val"),   "single")
-        right.set(qn("w:sz"),    str(size))
-        right.set(qn("w:space"), "6")
-        right.set(qn("w:color"), color)
-        pBdr.append(right)
-        pPr.append(pBdr)
-
-    try:
-        doc = Document()
-
-        # ── Page setup: A4, 1-inch margins ──────────────────────────────
-        section = doc.sections[0]
-        section.page_width   = Inches(8.27)
-        section.page_height  = Inches(11.69)
-        section.left_margin  = section.right_margin  = Inches(1.0)
-        section.top_margin   = section.bottom_margin = Inches(1.0)
-
-        # ── Document-level RTL default ───────────────────────────────────
-        settings = doc.settings.element
-        docDefaults = OxmlElement("w:docDefaults")
-        rPrDefault  = OxmlElement("w:rPrDefault")
-        rPr_def     = OxmlElement("w:rPr")
-        rtl_def     = OxmlElement("w:rtl")
-        rtl_def.set(qn("w:val"), "1")
-        rPr_def.append(rtl_def)
-        rPrDefault.append(rPr_def)
-        docDefaults.append(rPrDefault)
-
-        # ── Title paragraph ──────────────────────────────────────────────
-        title_para = doc.add_paragraph()
-        title_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        set_rtl_para(title_para)
-        add_shading(title_para, "1A1409")
-        title_para.paragraph_format.space_before = Pt(0)
-        title_para.paragraph_format.space_after  = Pt(6)
-        title_para.paragraph_format.line_spacing = Pt(36)
-        run = title_para.add_run(title)
-        run.font.name = URDU_FONT
-        run.font.size = Pt(18)
-        run.font.bold = True
-        run.font.color.rgb = RGBColor(0xF0, 0xD0, 0x80)
-        set_rtl_run(run)
-
-        # Date line
-        date_para = doc.add_paragraph()
-        date_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        date_para.paragraph_format.space_after = Pt(12)
-        dr = date_para.add_run(date_str)
-        dr.font.name = LATIN_FONT
-        dr.font.size = Pt(9)
-        dr.font.color.rgb = RGBColor(0x88, 0x88, 0x88)
-
-        # Ornament
-        orn_para = doc.add_paragraph()
-        orn_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        orn_para.paragraph_format.space_after = Pt(14)
-        or2 = orn_para.add_run("✦   ✦   ✦")
-        or2.font.name  = LATIN_FONT
-        or2.font.size  = Pt(13)
-        or2.font.color.rgb = RGBColor(0xB8, 0x86, 0x0B)
-
-        # ── Content paragraphs ────────────────────────────────────────────
-        for line in clean_lines:
-            verse = is_verse(line)
-
-            if verse:
-                # ── Persian/Arabic Masnavi verse line ─────────────────────
-                # Centered, bold, larger font, cream background,
-                # extra spacing above and below to clearly separate
-                # from the Urdu explanation text around it.
-
-                # Empty line BEFORE verse for visual separation
-                spacer = doc.add_paragraph()
-                spacer.paragraph_format.space_before = Pt(0)
-                spacer.paragraph_format.space_after  = Pt(0)
-                spacer.paragraph_format.line_spacing = Pt(6)
-
-                para = doc.add_paragraph()
-                set_rtl_para(para)
-                para.alignment = WD_ALIGN_PARAGRAPH.CENTER  # centered like poetry
-                para.paragraph_format.space_before  = Pt(8)
-                para.paragraph_format.space_after   = Pt(8)
-                para.paragraph_format.line_spacing  = Pt(36)
-                para.paragraph_format.left_indent   = Inches(0.5)
-                para.paragraph_format.right_indent  = Inches(0.5)
-                add_shading(para, "FDF0D0")           # warm cream background
-                add_border_right(para, "B8860B", 24)  # thick gold right border
-
-                run = para.add_run(line)
-                run.font.name      = URDU_FONT
-                run.font.size      = Pt(17)            # larger than Urdu text
-                run.font.bold      = True              # BOLD — clearly different
-                run.font.color.rgb = RGBColor(0x4A, 0x2C, 0x00)  # dark brown
-                set_rtl_run(run)
-
-                # Empty line AFTER verse
-                spacer2 = doc.add_paragraph()
-                spacer2.paragraph_format.space_before = Pt(0)
-                spacer2.paragraph_format.space_after  = Pt(0)
-                spacer2.paragraph_format.line_spacing = Pt(6)
-
-            else:
-                # ── Urdu explanation text ──────────────────────────────────
-                # Right-aligned, normal weight, smaller than verse
-                para = doc.add_paragraph()
-                set_rtl_para(para)
-                para.alignment = WD_ALIGN_PARAGRAPH.RIGHT
-                para.paragraph_format.space_before  = Pt(2)
-                para.paragraph_format.space_after   = Pt(2)
-                para.paragraph_format.line_spacing  = Pt(30)
-
-                run = para.add_run(line)
-                run.font.name      = URDU_FONT
-                run.font.size      = Pt(13)
-                run.font.bold      = False
-                run.font.color.rgb = RGBColor(0x1A, 0x14, 0x09)  # dark ink
-                set_rtl_run(run)
-
-        # Footer note
-        footer_para = doc.add_paragraph()
-        footer_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        footer_para.paragraph_format.space_before = Pt(18)
-        fr = footer_para.add_run(f"Masnavi Lecture Transcription System  |  {date_str}")
-        fr.font.name  = LATIN_FONT
-        fr.font.size  = Pt(8)
-        fr.font.color.rgb = RGBColor(0xA0, 0x80, 0x40)
-
-        doc.save(str(docx_path))
-        return True
-
-    except Exception as e:
-        logger.error(f"python-docx error: {e}")
-        return False
-
+def is_verse(line: str) -> bool:
+    """
+    Detect Persian Masnavi verse vs Urdu explanation.
+    Both use Arabic script so detection is vocabulary-based.
+    """
+    if not line.strip(): return False
+    words = line.split()
+    if len(words) > 20: return False
+    clean = [w.strip("،۔؟!.") for w in words]
+    if any(w in _STRONG_URDU    for w in clean): return False
+    if any(w in _STRONG_PERSIAN for w in clean): return True
+    persian = sum(1 for w in clean if w in _PERSIAN_WORDS)
+    urdu    = sum(1 for w in clean if w in _URDU_WORDS)
+    if persian > urdu and persian >= 2: return True
+    if 2 <= len(words) <= 10 and urdu == 0 and persian >= 1: return True
+    return False
 
 def save_transcript(title: str, text: str, output_dir: str = "transcripts") -> str:
     """

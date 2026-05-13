@@ -27,145 +27,48 @@ def txt_to_docx(txt_path: str) -> str:
     LATIN_FONT = "Calibri"
     RTL_RE     = re.compile(r"[\u0600-\u06FF\u0750-\u077F\uFB50-\uFDFF\uFE70-\uFEFF]")
 
-    def is_verse(line):
-        if len(line) >= 130: return False
-        rtl   = len(RTL_RE.findall(line))
-        total = len(line.replace(" ", ""))
-        return total > 0 and (rtl / total) > 0.85 and len(line) < 120
+    
+# Persian words common in Masnavi verses
+_PERSIAN_WORDS = {
+    "این","آن","است","می","را","که","از","با","بر","تا","هر","هم",
+    "نی","بشنو","چون","شکایت","جدایی","حکایت","آتش","کاندر","فتاد",
+    "دل","جان","درد","آب","خاک","باد","روح","نور",
+    "گفت","گفتم","گویم","شنو","بین","بیا","رفت","آمد",
+    "ما","من","تو","شد","شو","کن","کرد","بود","باش",
+    "دوست","راه","راز","پرده","پنهان","آشکار",
+    "مست","هست","نیست","چیست","کیست","کجاست",
+    "جوشش","خاموش","آواز","ناله","فریاد",
+    "می‌کند","می‌گوید","می‌خواهد","می‌داند",
+}
+_URDU_WORDS = {
+    "ہے","ہیں","ہو","ہوں","ہوتا","ہوتی","ہوتے",
+    "نے","کو","میں","سے","پر","کے","کی","کا",
+    "یہ","وہ","اس","ان","جو","جب","تب","اور","لیکن",
+    "فرمایا","کہا","بتایا","سمجھایا","بیان","مطلب",
+    "آج","کل","پہلے","بعد","ابھی","پھر",
+    "بہت","کچھ","سب","ہمارے","تمہارے","آپ",
+    "مولانا","حضرت","شیخ","درس","سبق",
+}
+_STRONG_URDU    = {"ہے","ہیں","ہوتا","ہوتی","فرمایا","کہا","بتایا","مولانا","حضرت"}
+_STRONG_PERSIAN = {"بشنو","کاندر","می‌کند","می‌گوید","جدایی","شکایت","فتاد","گفت"}
 
-    def is_header_line(line):
-        return line.startswith("=") or any(
-            line.startswith(k) for k in ["عنوان", "تاریخ", "ماخذ"]
-        )
 
-    def set_rtl_para(para):
-        pPr  = para._p.get_or_add_pPr()
-        bidi = OxmlElement("w:bidi")
-        bidi.set(qn("w:val"), "1")
-        pPr.insert(0, bidi)
-
-    def set_rtl_run(run):
-        rPr = run._r.get_or_add_rPr()
-        rtl = OxmlElement("w:rtl")
-        rtl.set(qn("w:val"), "1")
-        rPr.append(rtl)
-
-    def add_shading(para, fill_hex):
-        pPr = para._p.get_or_add_pPr()
-        shd = OxmlElement("w:shd")
-        shd.set(qn("w:val"),   "clear")
-        shd.set(qn("w:color"), "auto")
-        shd.set(qn("w:fill"),  fill_hex)
-        pPr.append(shd)
-
-    def add_border_right(para, color="B8860B", size=18):
-        pPr  = para._p.get_or_add_pPr()
-        pBdr = OxmlElement("w:pBdr")
-        right = OxmlElement("w:right")
-        right.set(qn("w:val"),   "single")
-        right.set(qn("w:sz"),    str(size))
-        right.set(qn("w:space"), "6")
-        right.set(qn("w:color"), color)
-        pBdr.append(right)
-        pPr.append(pBdr)
-
-    # ── Read TXT ────────────────────────────────────────────────────────
-    p       = Path(txt_path)
-    content = p.read_text(encoding="utf-8")
-
-    # Extract title and date from header if present
-    title    = p.stem.replace("_", " ")
-    date_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    lines    = []
-
-    for line in content.splitlines():
-        line = line.strip()
-        if not line or is_header_line(line):
-            # Extract title from header
-            if line.startswith("عنوان"):
-                title = line.split(":", 1)[-1].strip()
-            elif line.startswith("تاریخ"):
-                date_str = line.split(":", 1)[-1].strip()
-            continue
-        lines.append(line)
-
-    # ── Build DOCX ──────────────────────────────────────────────────────
-    doc     = Document()
-    section = doc.sections[0]
-    section.page_width   = Inches(8.27)
-    section.page_height  = Inches(11.69)
-    section.left_margin  = section.right_margin  = Inches(1.0)
-    section.top_margin   = section.bottom_margin = Inches(1.0)
-
-    # Title
-    tp = doc.add_paragraph()
-    tp.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    set_rtl_para(tp)
-    add_shading(tp, "1A1409")
-    tp.paragraph_format.space_before = Pt(0)
-    tp.paragraph_format.space_after  = Pt(6)
-    tp.paragraph_format.line_spacing = Pt(36)
-    tr = tp.add_run(title)
-    tr.font.name      = URDU_FONT
-    tr.font.size      = Pt(18)
-    tr.font.bold      = True
-    tr.font.color.rgb = RGBColor(0xF0, 0xD0, 0x80)
-    set_rtl_run(tr)
-
-    # Date
-    dp = doc.add_paragraph()
-    dp.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    dp.paragraph_format.space_after = Pt(8)
-    dr = dp.add_run(date_str)
-    dr.font.name      = LATIN_FONT
-    dr.font.size      = Pt(9)
-    dr.font.color.rgb = RGBColor(0x88, 0x88, 0x88)
-
-    # Ornament
-    op = doc.add_paragraph()
-    op.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    op.paragraph_format.space_after = Pt(14)
-    orr = op.add_run("✦   ✦   ✦")
-    orr.font.name      = LATIN_FONT
-    orr.font.size      = Pt(13)
-    orr.font.color.rgb = RGBColor(0xB8, 0x86, 0x0B)
-
-    # Content
-    for line in lines:
-        verse = is_verse(line)
-        para  = doc.add_paragraph()
-        set_rtl_para(para)
-        para.alignment = WD_ALIGN_PARAGRAPH.RIGHT
-        para.paragraph_format.space_before = Pt(2)
-        para.paragraph_format.space_after  = Pt(2)
-        para.paragraph_format.line_spacing = Pt(28) if verse else Pt(32)
-
-        if verse:
-            add_shading(para, "FDF6E0")
-            add_border_right(para)
-            para.paragraph_format.left_indent  = Inches(0.3)
-            para.paragraph_format.right_indent = Inches(0.2)
-
-        run = para.add_run(line)
-        run.font.name      = URDU_FONT
-        run.font.size      = Pt(15) if verse else Pt(13)
-        run.font.color.rgb = RGBColor(0x4A, 0x2C, 0x00) if verse else RGBColor(0x1A, 0x14, 0x09)
-        set_rtl_run(run)
-
-    # Footer
-    fp = doc.add_paragraph()
-    fp.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    fp.paragraph_format.space_before = Pt(18)
-    fr = fp.add_run(f"Masnavi Lecture Transcription System  |  {date_str}")
-    fr.font.name      = LATIN_FONT
-    fr.font.size      = Pt(8)
-    fr.font.color.rgb = RGBColor(0xA0, 0x80, 0x40)
-
-    # Save
-    out_path = p.with_suffix(".docx")
-    doc.save(str(out_path))
-    return str(out_path)
-
+def is_verse(line: str) -> bool:
+    """
+    Detect Persian Masnavi verse vs Urdu explanation.
+    Both use Arabic script so detection is vocabulary-based.
+    """
+    if not line.strip(): return False
+    words = line.split()
+    if len(words) > 20: return False
+    clean = [w.strip("،۔؟!.") for w in words]
+    if any(w in _STRONG_URDU    for w in clean): return False
+    if any(w in _STRONG_PERSIAN for w in clean): return True
+    persian = sum(1 for w in clean if w in _PERSIAN_WORDS)
+    urdu    = sum(1 for w in clean if w in _URDU_WORDS)
+    if persian > urdu and persian >= 2: return True
+    if 2 <= len(words) <= 10 and urdu == 0 and persian >= 1: return True
+    return False
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:

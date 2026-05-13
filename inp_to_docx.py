@@ -108,17 +108,48 @@ def extract_text_from_inp(filepath: str) -> str:
 # STEP 2 — Convert extracted text to DOCX
 # ════════════════════════════════════════════════════════════════════════════════
 
+
+# Persian words common in Masnavi verses
+_PERSIAN_WORDS = {
+    "این","آن","است","می","را","که","از","با","بر","تا","هر","هم",
+    "نی","بشنو","چون","شکایت","جدایی","حکایت","آتش","کاندر","فتاد",
+    "دل","جان","درد","آب","خاک","باد","روح","نور",
+    "گفت","گفتم","گویم","شنو","بین","بیا","رفت","آمد",
+    "ما","من","تو","شد","شو","کن","کرد","بود","باش",
+    "دوست","راه","راز","پرده","پنهان","آشکار",
+    "مست","هست","نیست","چیست","کیست","کجاست",
+    "جوشش","خاموش","آواز","ناله","فریاد",
+    "می‌کند","می‌گوید","می‌خواهد","می‌داند",
+}
+_URDU_WORDS = {
+    "ہے","ہیں","ہو","ہوں","ہوتا","ہوتی","ہوتے",
+    "نے","کو","میں","سے","پر","کے","کی","کا",
+    "یہ","وہ","اس","ان","جو","جب","تب","اور","لیکن",
+    "فرمایا","کہا","بتایا","سمجھایا","بیان","مطلب",
+    "آج","کل","پہلے","بعد","ابھی","پھر",
+    "بہت","کچھ","سب","ہمارے","تمہارے","آپ",
+    "مولانا","حضرت","شیخ","درس","سبق",
+}
+_STRONG_URDU    = {"ہے","ہیں","ہوتا","ہوتی","فرمایا","کہا","بتایا","مولانا","حضرت"}
+_STRONG_PERSIAN = {"بشنو","کاندر","می‌کند","می‌گوید","جدایی","شکایت","فتاد","گفت"}
+
+
 def is_verse(line: str) -> bool:
     """
-    Detect Persian/Arabic verse lines (short lines, mostly RTL characters).
-    These get special formatting — cream background + gold right border.
+    Detect Persian Masnavi verse vs Urdu explanation.
+    Both use Arabic script so detection is vocabulary-based.
     """
-    if len(line) >= 130:
-        return False
-    rtl   = len(VERSE_RE.findall(line))
-    total = len(line.replace(" ", ""))
-    return total > 0 and (rtl / total) > 0.85 and len(line) < 120
-
+    if not line.strip(): return False
+    words = line.split()
+    if len(words) > 20: return False
+    clean = [w.strip("،۔؟!.") for w in words]
+    if any(w in _STRONG_URDU    for w in clean): return False
+    if any(w in _STRONG_PERSIAN for w in clean): return True
+    persian = sum(1 for w in clean if w in _PERSIAN_WORDS)
+    urdu    = sum(1 for w in clean if w in _URDU_WORDS)
+    if persian > urdu and persian >= 2: return True
+    if 2 <= len(words) <= 10 and urdu == 0 and persian >= 1: return True
+    return False
 
 def _set_rtl_para(para):
     from docx.oxml.ns import qn
