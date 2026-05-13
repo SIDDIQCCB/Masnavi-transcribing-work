@@ -193,17 +193,7 @@ with tab_dash:
 
         # ===== CHATGPT UPDATE START =====
 
-        transcript_docx = list(Path(out_dir).glob("*.docx")) if Path(out_dir).exists() else []
-        transcript_txt  = list(Path(out_dir).glob("*.txt")) if Path(out_dir).exists() else []
-
-        total_archive_files = len(transcript_docx) + len(transcript_txt)
-
-        ESTIMATED_PROJECT_FILES = 786
-
-        archive_progress = round(
-            total_archive_files / max(ESTIMATED_PROJECT_FILES, 1) * 100,
-            1
-        )
+        
 
         c1,c2,c3,c4,c5,c6,c7 = st.columns(7)
 
@@ -213,17 +203,9 @@ with tab_dash:
         c4.metric("⏳ باقی", pend)
         c5.metric("❌ ناکام", fail)
         c6.metric("📈 %", f"{pct}%")
-        c7.metric("📚 Archive", total_archive_files)
+       
 
-        st.progress(pct/100)
-
-        st.markdown("### 📚 Archive Progress")
-        st.progress(archive_progress / 100)
-
-        st.caption(
-            f"{total_archive_files} transcript files archived "
-            f"out of estimated {ESTIMATED_PROJECT_FILES}"
-        )
+        
 
 # ===== CHATGPT UPDATE END =====
         st.caption(f"Playlist: {data.get('playlist_url','—')[:80]}")
