@@ -140,20 +140,6 @@ def download_audio(url: str, output_dir: str, progress_cb: Optional[Callable] = 
         "noplaylist": True,
         "quiet": True,
         "no_warnings": True,
-        # ── Fix for HTTP 403 Forbidden ──────────────────────────────────
-        # YouTube sometimes blocks direct downloads. These options help:
-        "http_headers": {
-            "User-Agent": (
-                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-                "AppleWebKit/537.36 (KHTML, like Gecko) "
-                "Chrome/120.0.0.0 Safari/537.36"
-            ),
-        },
-        "retries": 5,               # retry up to 5 times on failure
-        "fragment_retries": 5,
-        "extractor_retries": 3,
-        "sleep_interval": 2,        # wait 2s between retries
-        "max_sleep_interval": 5,
         "postprocessors": [{
             "key": "FFmpegExtractAudio",
             "preferredcodec": "mp3",
