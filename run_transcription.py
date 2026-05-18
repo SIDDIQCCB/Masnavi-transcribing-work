@@ -110,7 +110,6 @@ def process_video(
         progress_cb=progress_cb,
         device="cpu",
         compute_type="int8",
-        cpu_threads=4,
     )
 
     # Clean up audio unless --keep-audio
@@ -166,8 +165,6 @@ def main():
                         help="Keep downloaded audio files")
     parser.add_argument("--resume",     action="store_true",
                         help="Resume from saved progress (default: auto)")
-    parser.add_argument("--threads", type=int, default=4,
-                    help="Number of CPU threads (default: 4)")
 
     args = parser.parse_args()
 
@@ -221,4 +218,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
