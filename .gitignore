@@ -1,0 +1,10 @@
+audio_cache/
+__pycache__/
+*.pyc
+*.pid
+transcription.log
+transcription.pid
+current_job.json
+.env
+fonts/
+*.tmp
