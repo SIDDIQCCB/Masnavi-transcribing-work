@@ -1,17 +1,20 @@
 {
   "playlist_url": "https://youtu.be/Jkn_L-rXEAs?si=o6Nl8Ull_yRSl97Q",
   "created_at": 1777596452.860581,
-  "updated_at": 1778442209.898519,
+  "updated_at": 1784295702.364996,
   "total": 1,
   "videos": {
     "Dars e Masnavi Rumi (Vol 5-Part 27) by H": {
       "url": "https://youtu.be/Jkn_L-rXEAs?si=o6Nl8Ull_yRSl97Q",
       "title": "Dars e Masnavi Rumi (Vol 5-Part 27) by Hazrat Dr Ahmed Hambali Saheb Qibla",
       "status": "completed",
-      "transcript_path": "transcripts\\Dars_e_Masnavi_Rumi_(Vol_1-Part_76)_by_Hazrat_Dr_Ahmed_Hambali_Saheb_Qibla.docx",
+      "transcript_path": "transcripts\\Dars_e_Masnavi_Rumi_(Vol_1-Part_75)_by_Hazrat_Dr_Ahmed_Hambali_Saheb_Qibla.txt",
       "error": null,
-      "started_at": 1778424576.3534305,
-      "completed_at": 1778442209.8985167
+      "started_at": 1784290295.4039896,
+      "completed_at": 1784295702.364996,
+      "progress_pct": 100,
+      "eta_seconds": null,
+      "estimated_finish_time": null
     },
     "Everything created by Allah, from the ti": {
       "url": "https://youtu.be/IlJSPfdk7dg?si=rfaQgWYidykvHR1t",
@@ -88,6 +91,42 @@
     "Dars e Masnavi Rumi (Vol 1-Part 76) by H": {
       "url": "https://youtu.be/Y1kqqsXZriY?si=hDrO7RdCHKVEJlO2",
       "title": "Dars e Masnavi Rumi (Vol 1-Part 76) by Hazrat Dr Ahmed Hambali Saheb Qibla",
+      "status": "pending",
+      "transcript_path": null,
+      "error": null,
+      "started_at": null,
+      "completed_at": null
+    },
+    "video": {
+      "url": "https://youtu.be/yfX-N_VgU2k?si=wEiTazmD6BS2moqe",
+      "title": "video",
+      "status": "pending",
+      "transcript_path": null,
+      "error": null,
+      "started_at": null,
+      "completed_at": null
+    },
+    "Dars e Masnavi Rumi (Vol 5-Part 8) by Ha": {
+      "url": "https://youtu.be/2Ij7m-Pn_2s?si=i_O9Oc7kdkSWrvGg",
+      "title": "Dars e Masnavi Rumi (Vol 5-Part 8) by Hazrat Dr Ahmed Hambali Saheb Qibla",
+      "status": "pending",
+      "transcript_path": null,
+      "error": null,
+      "started_at": null,
+      "completed_at": null
+    },
+    "Dars e Masnavi Rumi (Vol 5-Part 3) by Ha": {
+      "url": "https://youtu.be/DsTSIy-k5aQ?si=9hoDOd6Hpsai-hin",
+      "title": "Dars e Masnavi Rumi (Vol 5-Part 3) by Hazrat Dr Ahmed Hambali Saheb Qibla",
+      "status": "pending",
+      "transcript_path": null,
+      "error": null,
+      "started_at": null,
+      "completed_at": null
+    },
+    "Dars e Masnavi Rumi (Vol 1-Part 75) by H": {
+      "url": "https://youtu.be/lZkuJ7rolh4?si=Ih975nMmRiekVucp",
+      "title": "Dars e Masnavi Rumi (Vol 1-Part 75) by Hazrat Dr Ahmed Hambali Saheb Qibla",
       "status": "pending",
       "transcript_path": null,
       "error": null,

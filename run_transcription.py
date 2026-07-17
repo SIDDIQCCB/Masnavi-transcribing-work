@@ -27,6 +27,8 @@ import argparse
 import logging
 import os
 import sys
+import time
+from datetime import datetime
 from pathlib import Path
 
 from transcriber import (
@@ -49,11 +51,20 @@ logger = logging.getLogger(__name__)
 # Progress callback (CLI)
 # ---------------------------------------------------------------------------
 
+def _format_eta(eta_seconds: float) -> str:
+    """Format seconds remaining as 'Xh Ym' or 'Ym'."""
+    total_min = int(eta_seconds // 60)
+    hours, minutes = divmod(total_min, 60)
+    if hours:
+        return f"{hours}h {minutes}m"
+    return f"{minutes}m"
+
+
 def make_cli_progress(video_title: str):
-    """Returns a callback that prints progress to stdout."""
+    """Returns a callback that prints progress to stdout, with ETA when available."""
     bar_width = 30
 
-    def cb(stage: str, pct: float):
+    def cb(stage: str, pct: float, eta_seconds: float = None, finish_time: float = None):
         filled = int(bar_width * pct / 100)
         bar = "█" * filled + "░" * (bar_width - filled)
         label = {
@@ -61,7 +72,13 @@ def make_cli_progress(video_title: str):
             "loading_model": "Loading model",
             "transcribing": "Transcribing ",
         }.get(stage, stage.capitalize())
-        print(f"\r  {label} [{bar}] {pct:5.1f}%", end="", flush=True)
+
+        eta_str = ""
+        if eta_seconds is not None and finish_time is not None:
+            clock = datetime.fromtimestamp(finish_time).strftime("%I:%M %p").lstrip("0")
+            eta_str = f"  ~{_format_eta(eta_seconds)} left, done ~{clock}"
+
+        print(f"\r  {label} [{bar}] {pct:5.1f}%{eta_str}   ", end="", flush=True)
         if pct >= 100:
             print()
 
@@ -88,8 +105,14 @@ def process_video(
     logger.info(f"{'='*60}")
     logger.info(f"Processing: {title}")
     logger.info(f"URL       : {url}")
+    job_start = time.monotonic()
 
-    progress_cb = make_cli_progress(title)
+    console_cb = make_cli_progress(title)
+
+    def progress_cb(stage: str, pct: float, eta_seconds: float = None, finish_time: float = None):
+        console_cb(stage, pct, eta_seconds=eta_seconds, finish_time=finish_time)
+        if stage == "transcribing":
+            tracker.update_eta(video_id, pct, eta_seconds=eta_seconds, finish_time=finish_time)
 
     # 1. Download
     logger.info("Step 1/2 — Downloading audio…")
@@ -108,8 +131,9 @@ def process_video(
         language=args.language,
         model_size=args.model,
         progress_cb=progress_cb,
-        device="cpu",
-        compute_type="int8",
+        device=args.device,
+        compute_type=args.compute_type,
+        beam_size=args.beam_size,
     )
 
     # Clean up audio unless --keep-audio
@@ -128,8 +152,12 @@ def process_video(
     tracker.mark_completed(video_id, saved_path)
 
     summary = tracker.summary()
+    elapsed = time.monotonic() - job_start
+    mins, secs = divmod(int(elapsed), 60)
+    hrs, mins = divmod(mins, 60)
+    time_str = f"{hrs}h {mins}m {secs}s" if hrs else f"{mins}m {secs}s"
     logger.info(
-        f"✓ Saved → {saved_path}  "
+        f"✓ Saved → {saved_path}  (took {time_str})  "
         f"[{summary['completed']}/{summary['total']} done, "
         f"{summary['percent_done']}%]"
     )
@@ -151,8 +179,15 @@ def main():
     group.add_argument("--playlist", help="YouTube playlist URL")
 
     parser.add_argument("--model",      default="medium",
-                        choices=["tiny", "base", "small", "medium", "large"],
-                        help="Whisper model size (default: medium)")
+                        choices=["tiny", "base", "small", "medium",
+                                 "large-v2", "large-v3"],
+                        help="Whisper model size (default: medium). "
+                             "On an NVIDIA GPU, large-v3 gives the best "
+                             "accuracy and is fast enough to be practical; "
+                             "on CPU-only machines stick to small/medium.")
+    parser.add_argument("--beam-size",  type=int, default=None, dest="beam_size",
+                        help="Beam search width. Default: auto — 5 on GPU, "
+                             "3 on CPU (higher = more accurate, slower)")
     parser.add_argument("--language",   default="ur",
                         help="Primary language code (default: ur)")
     parser.add_argument("--output",     default="transcripts",
@@ -165,8 +200,21 @@ def main():
                         help="Keep downloaded audio files")
     parser.add_argument("--resume",     action="store_true",
                         help="Resume from saved progress (default: auto)")
+    parser.add_argument("--device",     default="auto",
+                        choices=["auto", "cpu", "cuda"],
+                        help="Compute device: auto-detects NVIDIA GPU, "
+                             "else CPU (default: auto)")
+    parser.add_argument("--compute-type", default="auto", dest="compute_type",
+                        help="Precision: auto picks float16 (GPU) or int8 "
+                             "(CPU) automatically (default: auto)")
 
     args = parser.parse_args()
+
+    if args.device == "auto":
+        from transcriber import _auto_device
+        detected_device, detected_compute = _auto_device()
+        gpu_note = " (NVIDIA GPU found)" if detected_device == "cuda" else " (no usable NVIDIA GPU — using CPU)"
+        logger.info(f"Device auto-detect: {detected_device}/{detected_compute}{gpu_note}")
 
     tracker = ProgressTracker(save_path=args.progress)
 

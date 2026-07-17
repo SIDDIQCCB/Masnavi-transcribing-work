@@ -6,6 +6,7 @@ Saves state to JSON so work can be resumed after interruption.
 import json
 import time
 import logging
+from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
@@ -108,7 +109,34 @@ class ProgressTracker:
         self._data["videos"][video_id]["status"] = STATUS_PROCESSING
         self._data["videos"][video_id]["started_at"] = time.time()
         self._data["videos"][video_id]["error"] = None
+        self._data["videos"][video_id]["progress_pct"] = 0
+        self._data["videos"][video_id]["eta_seconds"] = None
+        self._data["videos"][video_id]["estimated_finish_time"] = None
         self._save()
+
+    def update_eta(self, video_id: str, pct: float,
+                    eta_seconds: Optional[float] = None,
+                    finish_time: Optional[float] = None) -> None:
+        """
+        Update live progress/ETA for the video currently being processed.
+        Writes to progress.json are throttled to ~once every 3 seconds so
+        this doesn't hammer disk I/O on every segment during transcription.
+        """
+        video = self._data.get("videos", {}).get(video_id)
+        if video is None:
+            return
+        video["progress_pct"] = round(pct, 1)
+        video["eta_seconds"] = round(eta_seconds) if eta_seconds is not None else None
+        if finish_time is not None:
+            video["estimated_finish_time"] = datetime.fromtimestamp(finish_time).strftime("%Y-%m-%d %I:%M %p")
+        else:
+            video["estimated_finish_time"] = None
+
+        now = time.time()
+        last_saved = getattr(self, "_last_eta_save", 0)
+        if now - last_saved >= 3 or pct >= 100:
+            self._save()
+            self._last_eta_save = now
 
     def mark_completed(self, video_id: str, transcript_path: str) -> None:
         self._data["videos"][video_id]["status"] = STATUS_COMPLETED

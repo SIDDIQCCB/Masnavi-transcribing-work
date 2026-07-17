@@ -295,17 +295,24 @@ def transcribe_audio(
         progress_cb("loading_model", 0)
 
     logger.info(f"Loading Whisper '{model_size}' | threads={threads} | workers={num_workers} | RAM≈{ram_gb:.1f}GB")
+
+    logger.info("DEBUG: Before WhisperModel")
+
     try:
-        model = WhisperModel(
-            model_size,
-            device=device,
-            compute_type=compute_type,
-            cpu_threads=threads,
-            num_workers=num_workers,
-        )
+     model = WhisperModel(
+        logger.info("MODEL LOADED")
+        model_size,
+        device=device,
+        compute_type=compute_type,
+        cpu_threads=threads,
+        num_workers=num_workers,
+    )
+
+    logger.info("DEBUG: After WhisperModel")
+
     except Exception as e:
-        logger.error(f"Model load failed: {e}")
-        return None
+    logger.error(f"Model load failed: {e}")
+    raise
 
     if progress_cb:
         progress_cb("transcribing", 0)
