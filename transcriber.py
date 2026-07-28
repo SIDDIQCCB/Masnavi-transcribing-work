@@ -236,14 +236,32 @@ def _auto_cpu_threads() -> int:
     return max(1, cores - 1)
 
 
+def _auto_device() -> tuple:
+    """
+    Detect whether an NVIDIA GPU (CUDA) is usable by ctranslate2.
+    Returns (device, compute_type).
+
+    NOTE: AMD/Intel integrated GPUs are NOT usable here — ctranslate2
+    only supports NVIDIA CUDA, so those machines always fall back to CPU.
+    """
+    try:
+        import ctranslate2
+        if ctranslate2.get_cuda_device_count() > 0:
+            return "cuda", "float16"
+    except Exception:
+        pass
+    return "cpu", "int8"
+
+
 def transcribe_audio(
     audio_path: str,
     language: Optional[str] = None,       # None = auto-detect per segment
     model_size: str = "small",            # 'small' is best for minimum-spec CPUs
     progress_cb: Optional[Callable] = None,
-    device: str = "cpu",
-    compute_type: str = "int8",
+    device: str = "auto",                 # "auto" = detect GPU, else "cpu"/"cuda"
+    compute_type: str = "auto",           # "auto" = float16 on GPU, int8 on CPU
     cpu_threads: Optional[int] = None,    # None = auto-detect from CPU cores
+    beam_size: Optional[int] = None,      # None = auto — 5 on GPU, 3 on CPU
 ) -> Optional[str]:
     """
     Transcribe mixed Urdu + Persian + English audio using faster-whisper.
@@ -258,6 +276,17 @@ def transcribe_audio(
     • initial_prompt — A bilingual seed telling Whisper this is a Masnavi
                        lecture mixing Urdu, Persian, and some English. This
                        guides the model without locking it to one script.
+
+    DEVICE AUTO-DETECTION (CPU vs NVIDIA GPU)
+    ──────────────────────────────────────────
+    • device="auto"       — Detects an NVIDIA CUDA GPU via ctranslate2 and
+                            uses it if present; otherwise falls back to CPU.
+                            AMD/Intel integrated graphics are never used —
+                            ctranslate2 has no ROCm/DirectX backend, so a
+                            machine with only an AMD iGPU always runs CPU.
+    • compute_type="auto" — float16 on GPU (fast, low VRAM use), int8 on CPU
+                            (fastest safe option on non-AVX512 CPUs).
+    • Pass explicit device="cpu"/"cuda" and compute_type=... to override.
 
     MINIMUM-SPEC CPU OPTIMISATION
     ──────────────────────────────
@@ -279,6 +308,19 @@ def transcribe_audio(
         logger.error("faster-whisper not installed. Run: pip install faster-whisper")
         return None
 
+    # Resolve "auto" device/compute_type into concrete values
+    if device == "auto" or compute_type == "auto":
+        auto_device, auto_compute = _auto_device()
+        if device == "auto":
+            device = auto_device
+        if compute_type == "auto":
+            compute_type = auto_compute
+
+    # Resolve beam_size: wider search on GPU (fast enough to afford it),
+    # narrower on CPU (keeps runtime reasonable on min-spec machines)
+    if beam_size is None:
+        beam_size = 5 if device == "cuda" else 3
+
     # Auto-detect threads if not specified
     threads = cpu_threads if cpu_threads is not None else _auto_cpu_threads()
 
@@ -294,25 +336,21 @@ def transcribe_audio(
     if progress_cb:
         progress_cb("loading_model", 0)
 
-    logger.info(f"Loading Whisper '{model_size}' | threads={threads} | workers={num_workers} | RAM≈{ram_gb:.1f}GB")
-
-    logger.info("DEBUG: Before WhisperModel")
-
-    try:
-     model = WhisperModel(
-        logger.info("MODEL LOADED")
-        model_size,
-        device=device,
-        compute_type=compute_type,
-        cpu_threads=threads,
-        num_workers=num_workers,
+    logger.info(
+        f"Loading Whisper '{model_size}' | device={device} | compute={compute_type} | "
+        f"threads={threads} | workers={num_workers} | beam_size={beam_size} | RAM≈{ram_gb:.1f}GB"
     )
-
-    logger.info("DEBUG: After WhisperModel")
-
+    try:
+        model = WhisperModel(
+            model_size,
+            device=device,
+            compute_type=compute_type,
+            cpu_threads=threads,
+            num_workers=num_workers,
+        )
     except Exception as e:
-    logger.error(f"Model load failed: {e}")
-    raise
+        logger.error(f"Model load failed: {e}")
+        return None
 
     if progress_cb:
         progress_cb("transcribing", 0)
@@ -350,11 +388,11 @@ def transcribe_audio(
             language=language,                     # ← None = auto per segment
             task="transcribe",
             initial_prompt=INITIAL_PROMPT,
-            beam_size=3,                           # ← min-spec: 3 instead of 5
+            beam_size=beam_size,                   # ← auto: 5 on GPU, 3 on CPU (or user override)
             temperature=0,
             condition_on_previous_text=True,
             repetition_penalty=1.1,
-            chunk_length=25,                       # ← min-spec: shorter chunks
+            chunk_length=25 if device == "cpu" else 30,  # shorter on CPU (RAM-safe), fuller context on GPU
             vad_filter=True,
             vad_parameters={
                 "min_silence_duration_ms": 600,  # longer silence needed to split
@@ -365,11 +403,26 @@ def transcribe_audio(
         )
 
         lines = []
+        transcribe_start = time.monotonic()
         for seg in segments:
             lines.append(seg.text.strip())
             if progress_cb and total_duration:
                 pct = min(seg.end / total_duration * 100, 99)
-                progress_cb("transcribing", pct)
+
+                # ETA: based on actual measured rate (audio-seconds processed
+                # per wall-clock-second), not a flat guess. Needs a little
+                # elapsed time first so early estimates aren't wild swings.
+                eta_seconds = None
+                finish_time = None
+                elapsed = time.monotonic() - transcribe_start
+                if elapsed > 5 and seg.end > 0:
+                    rate = seg.end / elapsed  # audio-seconds processed per real second
+                    remaining_audio = max(total_duration - seg.end, 0)
+                    if rate > 0:
+                        eta_seconds = remaining_audio / rate
+                        finish_time = datetime.now().timestamp() + eta_seconds
+
+                progress_cb("transcribing", pct, eta_seconds=eta_seconds, finish_time=finish_time)
 
         if progress_cb:
             progress_cb("transcribing", 100)
